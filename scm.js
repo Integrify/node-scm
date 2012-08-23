@@ -1,12 +1,12 @@
 var exec = require('child_process').exec;
 var path = require('path');
 
-var SCM = function () {
+var SCM = function() {
     return {
-        setDefaults:function (options) {
+        setDefaults : function(options) {
             this.appcmd = "SC";
         },
-        install:function (options, cb) {
+        install : function(options,cb) {
 
             var self = this;
 
@@ -16,37 +16,75 @@ var SCM = function () {
             var cmd = ' create "' + svc_cfg.name + '" binPath= "' + svc_cfg.path + '" start= ' + (svc_cfg.start || 'auto');
             cmd += ' displayName= "' + (svc_cfg.display || svc_cfg.name) + '"';
 
-            exec(this.appcmd + ' ' + cmd, function (err, stdout) {
+            exec(this.appcmd + ' ' + cmd,function(err,stdout) {
                     if (options_arr.length > 0) {
-                        self.install(options_arr, cb);
-                    } else {
-                        cb(err, stdout);
+                        self.install(options_arr,cb);
                     }
-                });
+                    else {
+                        cb(err,stdout);
+                    }
+                }
+            );
 
         },
-        start:function (name, cb) {
-            exec(this.appcmd + ' start "' + name + '"', cb);
-        },
-        waitStop:function (name, check_cnt, cb) {
+        start : function(name,cb) {
+            var serviceNames = typeof(name) == 'string' ? [name] : name;
             var self = this;
-            this.runningStatus(name, function (err, status) {
+            var sname = serviceNames.shift();
+            self.exists(sname,function(de) {
+
+                if (de) {//if exists
+
+                    exec(self.appcmd + ' start "' + sname + '"',function(err,stdout) {
+
+                        if (serviceNames.length > 0) {
+                            self.start(serviceNames,cb);
+                        }
+                        else {
+                            if (cb) {
+                                cb(err,stdout);
+                            }
+                            else {
+                                console.log(stdout);
+                            }
+                        }
+                    });
+
+                }
+                else {
+                    if (serviceNames.length > 0) {
+                        self.start(serviceNames,cb);
+                    }
+                    else {
+                        cb(null,sname + ' does not exist');
+                    }
+                }
+
+            });
+        },
+        waitStop : function(name,check_cnt,cb) {
+            var self = this;
+            this.runningStatus(name,function(err,status) {
                 if (status === 1) {
                     if (cb) {
-                        cb(null, name + ' stopped');
-                    } else {
+                        cb(null,name + ' stopped');
+                    }
+                    else {
                         console.log('Service stopped');
                     }
 
 
-                } else {
+                }
+                else {
                     console.log(status);
                     if (check_cnt > 0) {
                         console.log(check_cnt);
-                        setTimeout(function () {
-                                self.waitStop.call(self, name, --check_cnt, cb);
-                            }, 500);
-                    } else {
+                        setTimeout(function() {
+                                self.waitStop.call(self,name,--check_cnt,cb);
+                            }
+                            ,500);
+                    }
+                    else {
                         console.log('Cannot stop service');
                         process.exit();
                     }
@@ -57,32 +95,43 @@ var SCM = function () {
 
 
         },
-        stop:function (name, cb) {
+        stop : function(name,cb,running_services) {
             var self = this;
             var serviceNames = typeof(name) == 'string' ? [name] : name;
             var sname = serviceNames.shift();
 
-            this.runningStatus(sname, function (err, status) {
-                if (status === 4) {
-                    exec(self.appcmd + ' stop "' + sname + '"', function (err, res) {
+            //
+            //track services that were running
+            //
+            running_services = running_services || [];
 
-                        setTimeout(function () {
-                                self.waitStop.call(self, sname, 50, function (err, stdout) {
+            this.runningStatus(sname,function(err,status) {
+                if (status === 4) {
+                    running_services.push(sname);
+                    exec(self.appcmd + ' stop "' + sname + '"',function(err,res) {
+
+                        setTimeout(function() {
+                                self.waitStop.call(self,sname,50,function(err,stdout) {
+
                                     console.log(stdout);
                                     if (serviceNames.length > 0) {
-                                        self.stop(serviceNames, cb);
-                                    } else {
-                                        cb(err, stdout);
+                                        self.stop(serviceNames,cb,running_services);
+                                    }
+                                    else {
+                                        cb(err,running_services,stdout);
                                     }
                                 });
-                            }, 10);
+                            }
+                            ,10);
 
                     });
-                } else {
+                }
+                else {
                     if (serviceNames.length > 0) {
-                        self.stop(serviceNames, cb);
-                    } else {
-                        cb(err, status);
+                        self.stop(serviceNames,cb,running_services);
+                    }
+                    else {
+                        cb(err,running_services,'');
                     }
 
                 }
@@ -90,59 +139,64 @@ var SCM = function () {
 
             });
         },
-        delete:function (name, cb) {
+        delete : function(name,cb) {
             var serviceNames = typeof(name) == 'string' ? [name] : name;
             var self = this;
             var sname = serviceNames.shift();
-            self.exists(sname, function (de) {
+            self.exists(sname,function(de) {
 
                 if (de) {//if exists
 
-                    self.stop(sname, function (err, stat) {
+                    self.stop(sname,function(err,stat) {
 
-                        exec(self.appcmd + ' delete "' + sname + '"', function (err, stdout) {
+                        exec(self.appcmd + ' delete "' + sname + '"',function(err,stdout) {
 
                             console.log(stdout);
                             if (serviceNames.length > 0) {
-                                self.delete(serviceNames, cb);
-                            } else {
+                                self.delete(serviceNames,cb);
+                            }
+                            else {
                                 if (cb) {
-                                    cb(err, stdout);
-                                } else {
+                                    cb(err,stdout);
+                                }
+                                else {
                                     console.log(stdout);
                                 }
                             }
                         });
                     });
-                } else {
+                }
+                else {
                     if (serviceNames.length > 0) {
-                        self.delete(serviceNames, cb);
-                    } else {
-                        cb(null, sname + ' does not exist');
+                        self.delete(serviceNames,cb);
+                    }
+                    else {
+                        cb(null,sname + ' does not exist');
                     }
                 }
 
             });
         },
-        exists:function (name, cb) {
-            exec(this.appcmd + ' GetDisplayName "' + name + '"', function (err, stdout, stderr) {
+        exists: function(name,cb) {
+            exec(this.appcmd + ' GetDisplayName "' + name + '"',function(err,stdout,stderr) {
                 cb(err ? false : true);
             });
         },
-        runningStatus:function (name, cb) {
+        runningStatus : function(name,cb) {
             var self = this;
-            this.query(name, function (err, qobj) {
+            this.query(name, function(err,qobj) {
                 if (!err) {
-                    cb(null, parseInt(qobj.state.substring(0, 1)));
-                } else {
-                    cb(err, false);
+                    cb(null,parseInt(qobj.state.substring(0,1)));
+                }
+                else {
+                    cb(err,false);
                 }
 
             });
 
         },
-        query:function (name, cb) {
-            exec(this.appcmd + ' query "' + name + '"', function (err, stdout) {
+        query : function(name,cb) {
+            exec(this.appcmd + ' query "' + name + '"',function(err,stdout) {
                 if (!err) {
                     var enumlines = stdout.trim().split('\r\n');
 
@@ -151,22 +205,26 @@ var SCM = function () {
                     for (var i = 0; i < enumlines.length; ++i) {
                         if (enumlines[i].indexOf(':') !== -1) {
                             var kv = enumlines[i].split(':');
-                            lastKey = kv[0].trim().toLowerCase();
+                            lastKey  = kv[0].trim().toLowerCase();
                             queryObj[lastKey] = kv[1].trim();
-                        } else {
+                        }
+                        else {
                             queryObj[lastKey] += ' ' + enumlines[i].trim();
                         }
                     }
                     if (cb) {
-                        cb(null, queryObj);
-                    } else {
+                        cb(null,queryObj);
+                    }
+                    else {
                         console.log(queryObj);
                     }
-                } else {
+                }
+                else {
                     if (cb) {
-                        cb(err, stdout);
-                    } else {
-                        console.log(err, stdout);
+                        cb(err,stdout);
+                    }
+                    else {
+                        console.log(err,stdout);
                     }
                 }
 
