@@ -179,14 +179,19 @@ var SCM = function() {
         },
         exists: function(name,cb) {
             exec(this.appcmd + ' GetDisplayName "' + name + '"',function(err,stdout,stderr) {
-                cb(err ? false : true);
+
+                cb(err,stderr.length > 0 ? false : true);
             });
         },
         runningStatus : function(name,cb) {
             var self = this;
             this.query(name, function(err,qobj) {
                 if (!err) {
-                    cb(null,parseInt(qobj.state.substring(0,1)));
+                    //
+                    // return a status of 1 (stopped) if no state is returned
+                    //
+                    var status = qobj.state ? parseInt(qobj.state.substring(0,1)) : 1;
+                    cb(null,status);
                 }
                 else {
                     cb(err,false);
