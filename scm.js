@@ -31,7 +31,7 @@ var SCM = function() {
             var serviceNames = typeof(name) == 'string' ? [name] : name;
             var self = this;
             var sname = serviceNames.shift();
-            self.exists(sname,function(de) {
+            self.exists(sname,function(err,de) {
 
                 if (de) {//if exists
 
@@ -143,7 +143,7 @@ var SCM = function() {
             var serviceNames = typeof(name) == 'string' ? [name] : name;
             var self = this;
             var sname = serviceNames.shift();
-            self.exists(sname,function(de) {
+            self.exists(sname,function(err,de) {
 
                 if (de) {//if exists
 
