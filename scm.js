@@ -1,5 +1,7 @@
 var exec = require('child_process').exec;
 var path = require('path');
+var util = require('util');
+var _ = require('lodash');
 
 var SCM = function() {
     return {
@@ -177,10 +179,9 @@ var SCM = function() {
 
             });
         },
-        exists: function(name,cb) {
-            exec(this.appcmd + ' GetDisplayName "' + name + '"',function(err,stdout,stderr) {
-
-                cb(err,stderr.length > 0 ? false : true);
+        exists: function(name,callback) {
+            exec(util.format(this.appcmd + ' GetDisplayName "%s"',name),function(err,stdout,stderr) {
+                callback(err,_.isEmpty(err));
             });
         },
         runningStatus : function(name,cb) {
