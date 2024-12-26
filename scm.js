@@ -1,7 +1,22 @@
 var exec = require('child_process').exec;
 var path = require('path');
 var util = require('util');
-var _ = require('lodash');
+
+function isEmpty(value) {
+    if (value === null || value === undefined) {
+        return true;
+    }
+
+    if (typeof value === 'object' || typeof value === 'string') {
+        return Object.keys(value).length === 0;
+    }
+
+    if (Number.isNaN(value)) {
+        return true;
+    }
+
+    return false;
+}
 
 var SCM = function() {
     return {
@@ -181,7 +196,7 @@ var SCM = function() {
         },
         exists: function(name,callback) {
             exec(util.format(this.appcmd + ' GetDisplayName "%s"',name),function(err,stdout,stderr) {
-                callback(err,_.isEmpty(err));
+                callback(err, isEmpty(err));
             });
         },
         runningStatus : function(name,cb) {
